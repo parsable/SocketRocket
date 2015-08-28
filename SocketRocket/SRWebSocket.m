@@ -14,6 +14,7 @@
 //   limitations under the License.
 //
 
+#import <sys/socket.h>
 
 #import "SRWebSocket.h"
 
@@ -182,6 +183,7 @@ typedef void (^data_callback)(SRWebSocket *webSocket,  NSData *data);
 
 @property (nonatomic) NSOperationQueue *delegateOperationQueue;
 @property (nonatomic) dispatch_queue_t delegateDispatchQueue;
+@property (nonatomic) BOOL enableKeepAlive;
 
 @end
 
@@ -256,7 +258,7 @@ static __strong NSData *CRLFCRLF;
     CRLFCRLF = [[NSData alloc] initWithBytes:"\r\n\r\n" length:4];
 }
 
-- (id)initWithURLRequest:(NSURLRequest *)request protocols:(NSArray *)protocols;
+- (id)initWithURLRequest:(NSURLRequest *)request protocols:(NSArray *)protocols enableKeepAlive:(BOOL)enable
 {
     self = [super init];
     if (self) {
@@ -265,11 +267,16 @@ static __strong NSData *CRLFCRLF;
         _urlRequest = request;
         
         _requestedProtocols = [protocols copy];
-        
+        _enableKeepAlive = enable;
         [self _SR_commonInit];
     }
     
     return self;
+}
+
+- (id)initWithURLRequest:(NSURLRequest *)request protocols:(NSArray *)protocols;
+{
+    return [self initWithURLRequest:request protocols:protocols enableKeepAlive:NO];
 }
 
 - (id)initWithURLRequest:(NSURLRequest *)request;
@@ -508,6 +515,8 @@ static __strong NSData *CRLFCRLF;
         CFHTTPMessageSetHeaderFieldValue(request, (__bridge CFStringRef)key, (__bridge CFStringRef)obj);
     }];
     
+    [self addKeepAlive:_outputStream];
+
     NSData *message = CFBridgingRelease(CFHTTPMessageCopySerializedMessage(request));
     
     CFRelease(request);
@@ -559,6 +568,29 @@ static __strong NSData *CRLFCRLF;
     
     _inputStream.delegate = self;
     _outputStream.delegate = self;
+
+    if (_enableKeepAlive) {
+        [self addKeepAlive:_outputStream];
+    }
+}
+
+- (void) addKeepAlive: (NSStream*) stream {
+    NSData *socketData = (NSData *)[stream propertyForKey:(__bridge NSString *)kCFStreamPropertySocketNativeHandle];
+    if (socketData) {
+        int keepalive = 1;
+        socklen_t len = sizeof(keepalive);
+        CFSocketNativeHandle handle = *(CFSocketNativeHandle *)[socketData bytes];
+        if (setsockopt(handle, SOL_SOCKET, SO_KEEPALIVE, &keepalive, len) == -1){
+            NSLog(@"setsockopt SO_KEEPALIVE failed: %s", strerror(errno));
+        }
+#if DEBUG
+        if (getsockopt(handle, SOL_SOCKET, SO_KEEPALIVE, &keepalive, &len) != -1) {
+            NSLog(@"getsockopt SO_KEEPALIVE value: %d", keepalive);
+        }
+#endif
+    } else {
+        NSLog(@"!! Warning - failed to set SO_KEEPALIVE - kCFStreamPropertySocketNativeHandle not available.");
+    }
 }
 
 - (void)_openConnection;
