@@ -291,7 +291,7 @@ static __strong NSData *CRLFCRLF;
 
 - (id)initWithURLRequest:(NSURLRequest *)request;
 {
-    return [self initWithURLRequest:request protocols:nil enableKeepAlive:NO];
+    return [self initWithURLRequest:request protocols:nil enableKeepAlive:YES];
 }
 
 - (id)initWithURL:(NSURL *)url;
@@ -302,7 +302,7 @@ static __strong NSData *CRLFCRLF;
 - (id)initWithURL:(NSURL *)url protocols:(NSArray *)protocols;
 {
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];    
-    return [self initWithURLRequest:request protocols:protocols enableKeepAlive:NO];
+    return [self initWithURLRequest:request protocols:protocols enableKeepAlive:YES];
 }
 
 - (id)initWithURL:(NSURL *)url protocols:(NSArray *)protocols allowsUntrustedSSLCertificates:(BOOL)allowsUntrustedSSLCertificates;
